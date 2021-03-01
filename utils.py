@@ -7,6 +7,10 @@ from scipy.stats import norm
 random.seed(1)
 
 def brownian_sim(num_path, num_period, mu, std, init_p, dt):
+    """
+    Assume dSt = St (mu*dt + std*dWt), where Wt is brownian motion
+    num_path: number of path to simulate; num_period: the length of a path; init_p: initial price
+    """
     z = np.random.normal(size=(num_path, num_period))
 
     a_price = np.zeros((num_path, num_period))
@@ -19,9 +23,13 @@ def brownian_sim(num_path, num_period, mu, std, init_p, dt):
     return a_price
 
 
-# BSM Call Option Pricing Formula & BS Delta formula
-# T here is time to maturity
+
 def bs_call(iv, T, S, K, r, q):
+    """
+    BSM Call Option Pricing Formula & BS Delta formula 
+    T here is time to maturity, iv : implied volatility, q : continuous dividend
+    """
+    
     d1 = (np.log(S / K) + (r - q + iv * iv / 2) * T) / (iv * np.sqrt(T))
     d2 = d1 - iv * np.sqrt(T)
     bs_price = S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
@@ -29,16 +37,17 @@ def bs_call(iv, T, S, K, r, q):
     return bs_price, bs_delta
 
 
-def get_sim_path(M, freq, np_seed, num_sim):
-    """ Return simulated data: a tuple of three arrays
-        M: initial time to maturity
-        freq: trading freq in unit of day, e.g. freq=2: every 2 day; freq=0.5 twice a day;
-        np_seed: numpy random seed
-        num_sim: number of simulation path
+def get_sim_path(M, freq, np_seed, num_sim):                                                                  ####   把里面定义的全拉出来到fun() 参数
+    """ 
+    Return simulated data: a tuple of three arrays
+    M: initial time to maturity
+    freq: trading freq in unit of day, e.g. freq=2: every 2 day; freq=0.5 twice a day;
+    np_seed: numpy random seed
+    num_sim: number of simulation path
 
-        1) asset price paths (num_path x num_period)
-        2) option price paths (num_path x num_period)
-        3) delta (num_path x num_period)
+    1) asset price paths (num_path x num_period)
+    2) option price paths (num_path x num_period)
+    3) delta (num_path x num_period)
     """
     # set the np random seed
     np.random.seed(np_seed)
@@ -61,7 +70,7 @@ def get_sim_path(M, freq, np_seed, num_sim):
     # Number of simulations; passed from function parameter
     # num_sim = 1000000
 
-    # Annual Return
+    # Annual Risk-free Return
     mu = 0.05
 
     # Annual Volatility
@@ -84,11 +93,11 @@ def get_sim_path(M, freq, np_seed, num_sim):
     a_price = brownian_sim(num_sim, num_period + 1, mu, vol, S, dt)
 
     # time to maturity "rank 1" array: e.g. [M, M-1, ..., 0]
-    ttm = np.arange(M, -freq, -freq)
+    ttm = np.arange(M, -freq, -freq) #np.arrage(start,stop,step) from  [start,stop)
 
     # BS price 2-d array and bs delta 2-d array
     print("2. generate BS price and delta")
-    bs_price, bs_delta = bs_call(vol, ttm / T, a_price, K, r, q)
+    bs_price, bs_delta = bs_call(vol, ttm / T, a_price, K, r, q)  # bs_call(iv, T, S, K, r, q)
 
     print("simulation done!")
 
@@ -96,9 +105,14 @@ def get_sim_path(M, freq, np_seed, num_sim):
 
 
 def sabr_sim(num_path, num_period, mu, std, init_p, dt, rho, beta, volvol):
+    """
+     We assume an extension of geometric Brownian motion where the volatility is stochastic : dS =µSdt+σSdz_1  ;  dσ =vσdz_2
+     rho is the constant correlation between dz_1 and dz_2, two Wiener processes
+     v :volvol, std : initial volatility
+    """
     qs = np.random.normal(size=(num_path, num_period))
     qi = np.random.normal(size=(num_path, num_period))
-    qv = rho * qs + np.sqrt(1 - rho * rho) * qi
+    qv = rho * qs + np.sqrt(1 - rho * rho) * qi   #sum of normal is normal --> construct a wiener process dz2 with correlation rho 
 
     vol = np.zeros((num_path, num_period))
     vol[:, 0] = std
@@ -107,7 +121,7 @@ def sabr_sim(num_path, num_period, mu, std, init_p, dt, rho, beta, volvol):
     a_price[:, 0] = init_p
 
     for t in range(num_period - 1):
-        gvol = vol[:, t] * (a_price[:, t] ** (beta - 1))
+        gvol = vol[:, t] * (a_price[:, t] ** (beta - 1))  #beta = 1 
         a_price[:, t + 1] = a_price[:, t] * np.exp(
             (mu - (gvol ** 2) / 2) * dt + gvol * np.sqrt(dt) * qs[:, t]
         )
@@ -119,6 +133,8 @@ def sabr_sim(num_path, num_period, mu, std, init_p, dt, rho, beta, volvol):
 
 
 def sabr_implied_vol(vol, T, S, K, r, q, beta, volvol, rho):
+    """ vol is initial volatility, T time to maturity
+    """
 
     F = S * np.exp((r - q) * T)
     x = (F * K) ** ((1 - beta) / 2)
@@ -137,11 +153,11 @@ def sabr_implied_vol(vol, T, S, K, r, q, beta, volvol, rho):
     return SABRIV
 
 
-def bartlett(sigma, T, S, K, r, q, ds, beta, volvol, rho):
+def bartlett(sigma, T, S, K, r, q, ds, beta, volvol, rho): 
 
     dsigma = ds * volvol * rho / (S ** beta)
 
-    vol1 = sabr_implied_vol(sigma, T, S, K, r, q, beta, volvol, rho)
+    vol1 = sabr_implied_vol(sigma, T, S, K, r, q, beta, volvol, rho)  #sabr_implied_vol(vol, T, S, K, r, q, beta, volvol, rho): sigma here is initial volatility
     vol2 = sabr_implied_vol(sigma + dsigma, T, S + ds, K, r, q, beta, volvol, rho)
 
     bs_price1, _ = bs_call(vol1, T, S, K, r, q)
@@ -150,13 +166,6 @@ def bartlett(sigma, T, S, K, r, q, ds, beta, volvol, rho):
     b_delta = (bs_price2 - bs_price1) / ds
 
     return b_delta
-
-def bs_call(iv, T, S, K, r, q):
-    d1 = (np.log(S / K) + (r - q + iv * iv / 2) * T) / (iv * np.sqrt(T))
-    d2 = d1 - iv * np.sqrt(T)
-    bs_price = S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-    bs_delta = np.exp(-q * T) * norm.cdf(d1)
-    return bs_price, bs_delta
 
 
 def get_sim_path_sabr(M, freq, np_seed, num_sim):
@@ -210,7 +219,7 @@ def get_sim_path_sabr(M, freq, np_seed, num_sim):
     # Annual Dividend
     q = 0
 
-    # SABR parameters
+    # SABR parameters (special case here)
     beta = 1
     rho = -0.4
     volvol = 0.6
