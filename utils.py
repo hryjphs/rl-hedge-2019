@@ -40,7 +40,7 @@ def bs_call(iv, T, S, K, r, q):
 def get_sim_path(M, freq, np_seed, num_sim):                                                                  ####   把里面定义的全拉出来到fun() 参数
     """ 
     Return simulated data: a tuple of three arrays
-    M: initial time to maturity
+    M: initial time to maturity, days
     freq: trading freq in unit of day, e.g. freq=2: every 2 day; freq=0.5 twice a day;
     np_seed: numpy random seed
     num_sim: number of simulation path
