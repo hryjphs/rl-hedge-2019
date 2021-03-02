@@ -11,12 +11,14 @@ from utils import get_sim_path, get_sim_path_sabr
 class TradingEnv(gym.Env):
     """
     trading environment;
+    contains observation space (already simulated samples), action space, reset(), step()
     """
 
-    # trade_freq in unit of day, e.g 2: every 2 day; 0.5 twice a day;
+    # trade_freq in unit of day, e.g 2: every 2 day; 0.5 twice a day; time to maturity in unit of day
     def __init__(self, cash_flow_flag=0, dg_random_seed=1, num_sim=500002, sabr_flag = False,
         continuous_action_flag=False, spread=0, init_ttm=5, trade_freq=1, num_contract=1):
-
+        
+        # observation space 
         # simulated data: array of asset price, option price and delta paths (num_path x num_period)
         # generate data now
         if sabr_flag:
@@ -29,7 +31,7 @@ class TradingEnv(gym.Env):
         # other attributes
         self.num_path = self.path.shape[0]
 
-        # set num_period: initial time to maturity * daily trading freq + 1 (see get_sim_path() in utils.py)
+        # set num_period: initial time to maturity * daily trading freq + 1 (see get_sim_path() in utils.py): (s0,s1...sT) -->T+1
         self.num_period = self.path.shape[1]
         # print("***", self.num_period)
 
@@ -38,11 +40,11 @@ class TradingEnv(gym.Env):
         # print(self.ttm_array)
 
         # spread
-        self.spread = spread
+        self.spread = spread                                                                                   ## tick???spread cost???
 
         # step function initialization depending on cash_flow_flag
         if cash_flow_flag == 1:
-            self.step = self.step_cash_flow
+            self.step = self.step_cash_flow   # see step_cash_flow() definition below. Internal reference use self.
         else:
             self.step = self.step_profit_loss
 
@@ -55,27 +57,28 @@ class TradingEnv(gym.Env):
         # track time step within an episode (it's step)
         self.t = None
 
-        # action space
+        # action space                                                                                                        #action space justify?
         if continuous_action_flag:
             self.action_space = spaces.Box(low=np.array([0]), high=np.array([num_contract * 100]), dtype=np.float32)
         else:
             self.num_action = num_contract * 100 + 1
-            self.action_space = spaces.Discrete(self.num_action)
+            self.action_space = spaces.Discrete(self.num_action)  #number from 0 to self.num_action-1
 
         self.num_state = 3
 
-        self.state = []
+        self.state = []    # initialize current state
 
         # seed and start
-        self.seed()
+        self.seed()  # call this function when intialize ...
         # self.reset()
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
+        self.np_random, seed = seeding.np_random(seed)  #self.np_random now is a generateor np.random.RandomState() with a strong random seed; seed is a strong random seed
         return [seed]
 
     def reset(self):
         # repeatedly go through available simulated paths (if needed)
+        # go to the starting point again
         self.sim_episode = (self.sim_episode + 1) % self.num_path
 
         self.t = 0
@@ -92,6 +95,7 @@ class TradingEnv(gym.Env):
     def step_cash_flow(self, action):
         """
         cash flow period reward
+        take a step and return self.state, reward, done, info
         """
 
         # do it consistently as in the profit & loss case
@@ -109,16 +113,16 @@ class TradingEnv(gym.Env):
         position = action
         ttm = self.ttm_array[self.t]
 
-        self.state = [price, position, ttm]
+        self.state = [price, position, ttm]   #state transist to next price, ttm and stores current action(position)
 
         # calculate period reward (part 1)
-        cash_flow = -(position - current_position) * current_price - np.abs(position - current_position) * current_price * self.spread
+        cash_flow = -(position - current_position) * current_price - np.abs(position - current_position) * current_price * self.spread    # change cost formula????
 
-        # if tomorrow is end of episode
+        # if tomorrow is end of episode, only when at the end day done=True , self.num_period = T/frequency +1
         if self.t == self.num_period - 1:
-            done = True
+            done = True   #you have arrived at the terminal
             # add (stock payoff + option payoff) to cash flow
-            reward = cash_flow + price * position - max(price - self.strike_price, 0) * self.num_contract * 100 - position * price * self.spread
+            reward = cash_flow + price * position - max(price - self.strike_price, 0) * self.num_contract * 100 - position * price * self.spread   # change cost formula????
         else:
             done = False
             reward = cash_flow
@@ -157,7 +161,7 @@ class TradingEnv(gym.Env):
         # if tomorrow is end of episode
         if self.t == self.num_period - 1:
             done = True
-            reward = reward - (max(price - self.strike_price, 0) - current_option_price) * self.num_contract * 100 - position * price * self.spread
+            reward = reward - (max(price - self.strike_price, 0) - current_option_price) * self.num_contract * 100 - position * price * self.spread  #liquidate option and stocks
         else:
             done = False
             reward = reward - (option_price - current_option_price) * self.num_contract * 100
