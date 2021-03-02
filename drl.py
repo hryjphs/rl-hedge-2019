@@ -38,7 +38,7 @@ class DRL:
                 elif bartlett_flag:
                     action = self.env.bartlett_delta_path[i % self.env.num_path, self.env.t] * self.env.num_contract * 100
                 else:
-                    # choose action from epsilon-greedy; epsilon has been set to -1
+                    # choose action from epsilon-greedy; epsilon has been set to -1                                    #add boltzman
                     action, _, _ = self.egreedy_action(x)
 
                 # store action to take a look
