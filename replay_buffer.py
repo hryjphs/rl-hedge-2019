@@ -26,15 +26,17 @@ class ReplayBuffer(object):
         return len(self._storage)
 
     def add(self, obs_t, action, reward, obs_tp1, done):
+        """ save data to memory"""
         data = (obs_t, action, reward, obs_tp1, done)
 
         if self._next_idx >= len(self._storage):
             self._storage.append(data)
         else:
             self._storage[self._next_idx] = data
-        self._next_idx = (self._next_idx + 1) % self._maxsize
+        self._next_idx = (self._next_idx + 1) % self._maxsize  #the pointer go forward, when full go back to the initial to overwrite
 
     def _encode_sample(self, idxes):
+        """ retrieve data from memory"""
         obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
         for i in idxes:
             data = self._storage[i]
@@ -47,7 +49,7 @@ class ReplayBuffer(object):
         return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 
     def sample(self, batch_size):
-        """Sample a batch of experiences.
+        """Sample a batch of experiences.  
 
         Parameters
         ----------
@@ -68,7 +70,7 @@ class ReplayBuffer(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)] #random.randint [a,b] , it's with replacement!
         return self._encode_sample(idxes)
 
 
