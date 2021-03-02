@@ -10,6 +10,9 @@ time throughout the execution of the algorithm, such as:
 
 Each schedule has a function `value(t)` which returns the current value
 of the parameter given the timestep t of the optimization procedure.
+
+class xx(object) is a pyhton 2 method;
+class without __init__ could also works, but it doesn't define any class variables
 """
 
 
@@ -43,7 +46,7 @@ class PiecewiseSchedule(object):
     def __init__(self, endpoints, interpolation=linear_interpolation, outside_value=None):
         """Piecewise schedule.
 
-        endpoints: [(int, int)]
+        endpoints: [(int, int)] ,list of pairs
             list of pairs `(time, value)` meanining that schedule should output
             `value` when `t==time`. All the values for time must be sorted in
             an increasing order. When t is between two times, e.g. `(time_a, value_a)`
@@ -59,21 +62,21 @@ class PiecewiseSchedule(object):
             `endpoints` this value is returned. If None then AssertionError is
             raised when outside value is requested.
         """
-        idxes = [e[0] for e in endpoints]
-        assert idxes == sorted(idxes)
+        idxes = [e[0] for e in endpoints]  # two time points
+        assert idxes == sorted(idxes)  #The assert keyword is used when debugging code. The assert keyword lets you test if a condition in your code returns True, if not, the program will raise an AssertionError.
         self._interpolation = interpolation
         self._outside_value = outside_value
         self._endpoints = endpoints
 
     def value(self, t):
         """See Schedule.value"""
-        for (l_t, l), (r_t, r) in zip(self._endpoints[:-1], self._endpoints[1:]):
+        for (l_t, l), (r_t, r) in zip(self._endpoints[:-1], self._endpoints[1:]):   #zip create a iterator
             if l_t <= t and t < r_t:
                 alpha = float(t - l_t) / (r_t - l_t)
                 return self._interpolation(l, r, alpha)
 
         # t does not belong to any of the pieces, so doom.
-        assert self._outside_value is not None
+        assert self._outside_value is not None  # if None, AssertionError
         return self._outside_value
 
 
